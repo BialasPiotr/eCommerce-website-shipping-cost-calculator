@@ -7,22 +7,38 @@ enum class Rate(val value: Double) {
     INTERNATIONAL_MAX(50.0)
 }
 
-fun domesticShippingCost(orderAmount: Double): Double {
-    return if (orderAmount >= Rate.DOMESTIC_FREE_LIMIT.value) 0.0 else orderAmount * Rate.DOMESTIC_RATE.value
+enum class Currency(val rate: Double) {
+    USD(1.0),
+    EUR(0.85),
+    PLN(3.8)
 }
 
-fun internationalShippingCost(orderAmount: Double): Double {
-    return min(Rate.INTERNATIONAL_MAX.value, orderAmount * Rate.INTERNATIONAL_RATE.value)
+class Order(private val amount: Double, private val isInternational: Boolean, private val currency: Currency) {
+
+    fun calculateShippingCost(): Double {
+        val convertedAmount = amount / currency.rate
+        val baseCost = if (isInternational) internationalShippingCost(convertedAmount) else domesticShippingCost(convertedAmount)
+        return baseCost * currency.rate * applyDiscount(convertedAmount)
+    }
+
+    private fun domesticShippingCost(orderAmount: Double): Double {
+        return if (orderAmount >= Rate.DOMESTIC_FREE_LIMIT.value) 0.0 else orderAmount * Rate.DOMESTIC_RATE.value
+    }
+
+    private fun internationalShippingCost(orderAmount: Double): Double {
+        return min(Rate.INTERNATIONAL_MAX.value, orderAmount * Rate.INTERNATIONAL_RATE.value)
+    }
+
+    private fun applyDiscount(orderAmount: Double): Double {
+        return if (orderAmount > 100) 0.9 else 1.0
+    }
 }
 
-fun shippingCost(orderAmount: Double, isInternational: Boolean): Double {
-    return if (isInternational) internationalShippingCost(orderAmount) else domesticShippingCost(orderAmount)
-}
-
-fun getUserInput(): Pair<Double, Boolean> {
+fun getUserInput(): Triple<Double, Boolean, Currency> {
     var isValid = false
     var orderAmount = 0.0
     var isInternational = false
+    var currency = Currency.USD
 
     while (!isValid) {
         try {
@@ -37,11 +53,15 @@ fun getUserInput(): Pair<Double, Boolean> {
     println("Is this an international order? (Yes/No)")
     isInternational = readLine()!!.toLowerCase() == "yes"
 
-    return Pair(orderAmount, isInternational)
+    println("Enter the currency (USD/EUR/PLN):")
+    currency = Currency.valueOf(readLine()!!.toUpperCase())
+
+    return Triple(orderAmount, isInternational, currency)
 }
 
 fun main(args: Array<String>) {
-    val (orderAmount, isInternational) = getUserInput()
-    val cost = shippingCost(orderAmount, isInternational)
-    println("Shipping cost: $cost")
+    val (orderAmount, isInternational, currency) = getUserInput()
+    val order = Order(orderAmount, isInternational, currency)
+    val cost = order.calculateShippingCost()
+    println("Shipping cost: ${String.format("%.2f", cost)} ${currency.name}")
 }
